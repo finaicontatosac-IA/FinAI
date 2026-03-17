@@ -1,0 +1,8 @@
+{
+  "name": "FinAIGPT - Contabilidade & Finanças IA",
+  "description": "Uma plataforma avançada de inteligência artificial para contabilidade e gestão financeira, com suporte a RAG (Recuperação de Documentos), análise de mercado e relatórios dinâmicos.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

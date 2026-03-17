@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat session containing messages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "role": { "type": "string", "enum": ["user", "model"] },
+              "content": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "sources": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "lastUpdate": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string" },
+        "deletedAt": { "type": "string", "format": "date-time" },
+        "isPinned": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["accounting", "financial", "student"] }
+      },
+      "required": ["id", "title", "messages", "lastUpdate", "userId", "type"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "A document uploaded by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string" },
+        "uploadDate": { "type": "string", "format": "date-time" },
+        "size": { "type": "number" },
+        "sourceType": { "type": "string" },
+        "userId": { "type": "string" },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "category": { "type": "string", "enum": ["cost", "tax", "management", "general", "exercise"] }
+          }
+        }
+      },
+      "required": ["id", "name", "content", "type", "uploadDate", "size", "sourceType", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/chatSessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Chat sessions for all users"
+    },
+    "/documents/{docId}": {
+      "schema": "Document",
+      "description": "Documents for all users"
+    }
+  }
+}

@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (from Firebase Auth)
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - email: string (required, email format)
+    //   - avatar: string (optional)
+    //
+    // Collection: chatSessions
+    // Document ID: sessionId
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required)
+    //   - messages: list (required)
+    //   - lastUpdate: timestamp (required)
+    //   - userId: string (required, matches owner)
+    //   - type: string (required, enum: accounting, financial, student)
+    //   - isPinned: bool (optional)
+    //   - deletedAt: timestamp (optional)
+    //
+    // Collection: documents
+    // Document ID: docId
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - content: string (required)
+    //   - type: string (required)
+    //   - uploadDate: timestamp (required)
+    //   - size: number (required)
+    //   - sourceType: string (required)
+    //   - userId: string (required, matches owner)
+    //   - metadata: map (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "finaicontatosac@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             (!('avatar' in data) || (data.avatar is string && data.avatar.size() < 500));
+    }
+
+    function isValidChatSession(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.messages is list && data.messages.size() < 1000 &&
+             data.lastUpdate is timestamp &&
+             data.userId == request.auth.uid &&
+             data.type in ['accounting', 'financial', 'student'] &&
+             (!('isPinned' in data) || data.isPinned is bool) &&
+             (!('deletedAt' in data) || data.deletedAt is timestamp);
+    }
+
+    function isValidDocument(data) {
+      return data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.content is string && data.content.size() < 1000000 &&
+             data.type is string &&
+             data.uploadDate is timestamp &&
+             data.size is number && data.size >= 0 &&
+             data.sourceType is string &&
+             data.userId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (!('role' in request.resource.data) || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /chatSessions/{sessionId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidChatSession(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidChatSession(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /documents/{docId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidDocument(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isValidDocument(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
